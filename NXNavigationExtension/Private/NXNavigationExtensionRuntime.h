@@ -87,13 +87,18 @@ NXNavigationExtensionLookupClass(__nullable Class aClass, NSArray<Class> *classe
 @end
 
 
-@interface NSMethodSignature (NXNavigationExtension)
-
-- (NSString *)nx_typeString;
-
-- (const char *)nx_typeEncoding;
-
-@end
+/// 仅使用公开 API（methodReturnType / getArgumentTypeAtIndex:）拼接方法的 type encoding。
+/// 替代原 NSMethodSignature 分类中经由 performSelector 调用私有方法 `-[NSMethodSignature _typeString]` 的实现，
+/// 该私有 API 会导致 App Store 审核以 Guideline 2.5.1 (non-public API) 拒绝。
+CG_INLINE NSString * _Nullable
+NXNavigationExtensionTypeEncodingFromMethodSignature(NSMethodSignature * _Nullable signature) {
+    if (!signature) return nil;
+    NSMutableString *result = [NSMutableString stringWithUTF8String:signature.methodReturnType];
+    for (NSUInteger index = 0; index < signature.numberOfArguments; index++) {
+        [result appendString:[NSString stringWithUTF8String:[signature getArgumentTypeAtIndex:index]]];
+    }
+    return result;
+}
 
 CG_INLINE BOOL
 NXNavigationExtensionHasOverrideSuperclassMethod(Class targetClass, SEL targetSelector) {
@@ -144,7 +149,7 @@ NXNavigationExtensionOverrideImplementation(Class targetClass, SEL targetSelecto
     if (hasOverride) {
         method_setImplementation(originMethod, imp_implementationWithBlock(implementationBlock(targetClass, targetSelector, originalIMPProvider)));
     } else {
-        const char *typeEncoding = method_getTypeEncoding(originMethod) ?: [targetClass instanceMethodSignatureForSelector:targetSelector].nx_typeEncoding;
+        const char *typeEncoding = method_getTypeEncoding(originMethod) ?: NXNavigationExtensionTypeEncodingFromMethodSignature([targetClass instanceMethodSignatureForSelector:targetSelector]).UTF8String;
         class_addMethod(targetClass, targetSelector, imp_implementationWithBlock(implementationBlock(targetClass, targetSelector, originalIMPProvider)), typeEncoding);
     }
     
