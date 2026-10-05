@@ -46,18 +46,3 @@
 @end
 
 
-@implementation NSMethodSignature (NXNavigationExtension)
-
-- (NSString *)nx_typeString {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-    NSString *typeString = [self performSelector:NSSelectorFromString([NSString stringWithFormat:@"_%@String", @"type"])];
-#pragma clang diagnostic pop
-    return typeString;
-}
-
-- (const char *)nx_typeEncoding {
-    return self.nx_typeString.UTF8String;
-}
-
-@end
